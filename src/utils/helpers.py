@@ -6,16 +6,17 @@ from __future__ import annotations
 
 
 def fmt_cop(value: float) -> str:
-    """Formatea un número como moneda COP abreviada (K, M, B)."""
+    """Formatea moneda COP en escala colombiana correcta."""
     abs_val = abs(value)
+    if abs_val >= 1_000_000_000_000:
+        return f"$ {value / 1_000_000_000_000:.2f} Bill."
     if abs_val >= 1_000_000_000:
-        return f"$ {value / 1_000_000_000:.1f}B"
+        return f"$ {value / 1_000_000_000:.2f} Mil M."
     if abs_val >= 1_000_000:
-        return f"$ {value / 1_000_000:.1f}M"
+        return f"$ {value / 1_000_000:.2f} M."
     if abs_val >= 1_000:
-        return f"$ {value / 1_000:.1f}K"
+        return f"$ {value / 1_000:.2f} K"
     return f"$ {value:,.0f}"
-
 
 def fmt_number(value: float) -> str:
     """Formatea un número entero con separadores de miles."""
