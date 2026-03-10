@@ -28,11 +28,15 @@ def render_sidebar_filters(df_a: pd.DataFrame, df_b: pd.DataFrame):
     with st.sidebar:
         st.markdown("---")
         period = st.radio("📅 Período", ["Mensual", "Semanal", "Diario"], index=0)
+
+        # selector de fecha
+        date_filter = _render_date_filter(df_a, df_b)
+
         st.markdown("---")
         st.markdown("### 🔍 Filtros detectados")
         filters = _build_auto_filters(df_a, df_b)
 
-    return period, filters
+    return period, filters, date_filter
 
 
 def _build_auto_filters(df_a: pd.DataFrame, df_b: pd.DataFrame) -> FilterDict:
@@ -80,6 +84,48 @@ def apply_filters(df: pd.DataFrame, filters: FilterDict) -> pd.DataFrame:
             mask &= df[col].isin(values)
     return df[mask]
 
+def _render_date_filter(df_a: pd.DataFrame, df_b: pd.DataFrame) -> dict | None:
+    """
+    Selector de fecha específica para comparar un día del año anterior
+    vs un día del año actual.
+    """
+    st.markdown("---")
+    usar_fecha = st.checkbox("📆 Filtrar por día específico", value=False)
+
+    if not usar_fecha:
+        return None
+
+    # Detectar rango de fechas disponibles en cada archivo
+    fechas_a = pd.to_datetime(df_a["_fecha"], errors="coerce").dropna()
+    fechas_b = pd.to_datetime(df_b["_fecha"], errors="coerce").dropna()
+
+    min_a = fechas_a.min().date()
+    max_a = fechas_a.max().date()
+    min_b = fechas_b.min().date()
+    max_b = fechas_b.max().date()
+
+    st.markdown("**Año Anterior:**")
+    fecha_a = st.date_input(
+        "Selecciona el día",
+        value=max_a,
+        min_value=min_a,
+        max_value=max_a,
+        key="fecha_a"
+    )
+
+    st.markdown("**Año Actual:**")
+    fecha_b = st.date_input(
+        "Selecciona el día",
+        value=max_b,
+        min_value=min_b,
+        max_value=max_b,
+        key="fecha_b"
+    )
+
+    return {"fecha_a": fecha_a, "fecha_b": fecha_b}
+
 
 def _sorted_unique(df: pd.DataFrame, col: str) -> list:
     return sorted(df[col].dropna().unique().tolist(), key=str)
+
+    

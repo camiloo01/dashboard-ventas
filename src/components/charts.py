@@ -1,5 +1,5 @@
 """
-charts.py — Componente de gráficos comparativos.
+charts.py — Gráficos comparativos calibrados para las columnas del archivo.
 """
 
 from __future__ import annotations
@@ -19,18 +19,23 @@ COLOR_B_LINE = "#00e5a0"
 
 
 def render_charts(fa: pd.DataFrame, fb: pd.DataFrame, period: str) -> None:
+    # Si solo hay un día de datos, forzar vista diaria
+    dias_a = fa["_dia"].nunique() if "_dia" in fa.columns else 0
+    dias_b = fb["_dia"].nunique() if "_dia" in fb.columns else 0
+    if dias_a <= 1 and dias_b <= 1:
+        period = "Diario"
+
     _render_timeline(fa, fb, period)
     _render_bar_row(fa, fb, "🗺️ Ventas por Región y Fabricante",
                    [("Region", 10), ("Fabricante", 8)])
-    _render_bar_row(fa, fb, "🏪 Tiendas y Gama",
-                   [("Descripción Centro", 12), ("Gama", 10)])
+    _render_bar_row(fa, fb, "🏪 Tiendas y Tipo de Venta",
+                   [("Descripción Centro", 12), ("Tipo de Venta", 10)])
+    _render_bar_row(fa, fb, "📦 Gama y Canal",
+                   [("Gama", 10), ("Canal", 10)])
     _render_growth_by_region(fa, fb)
 
 
-# ── Layout base sin yaxis ─────────────────────────────────────────────────────
-
-def _base_layout(**extra):
-    """Construye el layout base sin duplicar yaxis."""
+def _base_layout(**extra) -> dict:
     layout = {k: v for k, v in PLOTLY_LAYOUT.items() if k != "yaxis"}
     layout.update(extra)
     return layout
@@ -43,7 +48,7 @@ def _render_timeline(fa: pd.DataFrame, fb: pd.DataFrame, period: str) -> None:
 
     col = get_period_col(period)
     if col not in fa.columns:
-        st.warning("No se encontró columna de fecha para graficar la evolución.")
+        st.warning("No se encontró columna de fecha.")
         return
 
     g_a = fa.groupby(col)["_ingreso"].sum().reset_index()
@@ -51,33 +56,35 @@ def _render_timeline(fa: pd.DataFrame, fb: pd.DataFrame, period: str) -> None:
     g_a.columns = ["periodo", "ingreso"]
     g_b.columns = ["periodo", "ingreso"]
 
+    # Renombrar periodos con etiquetas claras cuando es un solo día
+    if len(g_a) == 1 and len(g_b) == 1:
+        g_a["periodo"] = g_a["periodo"].astype(str) + " (Año Ant.)"
+        g_b["periodo"] = g_b["periodo"].astype(str) + " (Año Act.)"
+
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
+    fig.add_trace(go.Bar(
         x=g_a["periodo"], y=g_a["ingreso"], name="Año Anterior",
-        line=dict(color=COLOR_A_LINE, width=2),
-        fill="tozeroy", fillcolor="rgba(123,97,255,0.08)"
+        marker_color=COLOR_A_LINE
     ))
-    fig.add_trace(go.Scatter(
+    fig.add_trace(go.Bar(
         x=g_b["periodo"], y=g_b["ingreso"], name="Año Actual",
-        line=dict(color=COLOR_B_LINE, width=2),
-        fill="tozeroy", fillcolor="rgba(0,229,160,0.08)"
+        marker_color=COLOR_B_LINE
     ))
     fig.update_layout(
-        **_base_layout(height=320, hovermode="x unified"),
+        **_base_layout(height=320, barmode="group"),
         yaxis=dict(tickformat=",.0f", gridcolor="#1c1c28")
     )
-    st.plotly_chart(fig, width="stretch")
-
+    st.plotly_chart(fig, use_container_width=True, key="chart_timeline")
 
 # ── Barras ────────────────────────────────────────────────────────────────────
 
 def _grouped_bar(fa: pd.DataFrame, fb: pd.DataFrame, field: str, top: int) -> go.Figure | None:
-    if field not in fa.columns:
+    if field not in fa.columns and field not in fb.columns:
         return None
 
-    agg_a = fa.groupby(field)["_ingreso"].sum().nlargest(top)
-    agg_b = fb.groupby(field)["_ingreso"].sum()
-    keys  = agg_a.index.tolist()
+    agg_a = fa.groupby(field)["_ingreso"].sum().nlargest(top) if field in fa.columns else pd.Series()
+    agg_b = fb.groupby(field)["_ingreso"].sum() if field in fb.columns else pd.Series()
+    keys  = agg_a.index.tolist() if not agg_a.empty else agg_b.nlargest(top).index.tolist()
 
     fig = go.Figure()
     fig.add_bar(
@@ -104,7 +111,8 @@ def _render_bar_row(fa, fb, title: str, fields: list[tuple]) -> None:
         with col:
             fig = _grouped_bar(fa, fb, field, top)
             if fig:
-                st.plotly_chart(fig, use_container_width=True)
+                safe_key = field.replace(" ", "_").replace("/", "_").replace("é", "e").replace("ó", "o").replace("í", "i")
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_{safe_key}")
             else:
                 st.info(f"Columna `{field}` no encontrada.")
 
@@ -135,7 +143,7 @@ def _render_growth_by_region(fa: pd.DataFrame, fb: pd.DataFrame) -> None:
         **_base_layout(height=280),
         yaxis=dict(ticksuffix="%", gridcolor="#1c1c28")
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="chart_growth_region")
 
 
 def _find_col(df: pd.DataFrame, candidates: list[str]) -> str | None:

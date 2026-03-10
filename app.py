@@ -19,13 +19,13 @@ def main() -> None:
     configure_page()
 
     st.markdown("""
-        <h1 style='font-family:Syne,sans-serif;font-weight:800;font-size:2rem;color:#e8e8f0;margin-bottom:0'>
-            REPORTES<span style='color:#00e5a0'>.</span>
-        </h1>
-        <p style='color:#6b6b8a;font-size:0.8rem;margin-top:0.3rem'>
-            Dashboard de reportes por año
-        </p>
-    """, unsafe_allow_html=True)
+    <h1 style='font-family:Syne,sans-serif;font-weight:800;font-size:2rem;color:#e8e8f0;margin-bottom:0'>
+        REPORTES
+    </h1>
+    <p style='color:#6b6b8a;font-size:0.8rem;margin-top:0.3rem'>
+        Dashboard Comparativo Anual — Detección automática de columnas
+    </p>
+""", unsafe_allow_html=True)
 
     # ── Cargar archivos desde session_state ──────────────────────────────────
     file_a, file_b = _render_uploaders()
@@ -39,28 +39,27 @@ def main() -> None:
         df_b = load_and_clean(file_b)
 
     #Filtros (solo se renderizan una vez, con los datos ya cargados)
-    period, filters = _render_filters(df_a, df_b)
+    period, filters, date_filter = render_sidebar_filters(df_a=df_a, df_b=df_b)
 
     fa = apply_filters(df_a, filters)
     fb = apply_filters(df_b, filters)
 
-    st.caption(
-        f"Año anterior: **{len(fa):,}** filas | "
-        f"Año actual: **{len(fb):,}** filas | "
-        f"Filtros activos: **{sum(1 for v in filters.values() if v)}**"
-    )
+    # Aplicar filtro de fecha específica si está activo
+    if date_filter:
+        fa = fa[fa["_dia"] == str(date_filter["fecha_a"])]
+        fb = fb[fb["_dia"] == str(date_filter["fecha_b"])]
 
     _show_column_summary(df_a)
     render_kpis(fa, fb)
     render_charts(fa, fb, period)
     table_df = render_detail_table(fa, fb)
-    render_export(table_df)
+    render_export(fa, fb, table_df)
 
 
 def _render_uploaders():
     """Renderiza los file uploaders en el sidebar. Se llama UNA sola vez."""
     with st.sidebar:
-        st.markdown("###Cargar Archivos")
+        st.markdown("<h4 style='color:white'>📂 Cargar Archivos</h4>", unsafe_allow_html=True)
         file_a = st.file_uploader("Año Anterior", type=["xlsx", "xls", "csv"], key="fa")
         file_b = st.file_uploader("Año Actual",   type=["xlsx", "xls", "csv"], key="fb")
     return file_a, file_b

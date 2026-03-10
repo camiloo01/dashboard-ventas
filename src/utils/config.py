@@ -6,7 +6,6 @@ import streamlit as st
 
 
 def configure_page() -> None:
-    """Configura la página de Streamlit y carga los estilos globales."""
     st.set_page_config(
         page_title="Dashboard de Ventas",
         page_icon="📊",
@@ -53,7 +52,7 @@ def _inject_styles() -> None:
     """, unsafe_allow_html=True)
 
 
-# ── Constantes de diseño compartidas ────────────────────────────────────────
+# ── Constantes de diseño compartidas ─────────────────────────────────────────
 CHART_COLORS = [
     "#00e5a0", "#7b61ff", "#ff4d6d", "#ffd166",
     "#06d6a0", "#118ab2", "#ef476f", "#ffc8dd",

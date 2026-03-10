@@ -9,7 +9,6 @@ import streamlit as st
 
 from src.utils.helpers import pct_change, sign
 
-# Columnas preferidas para agrupar la tabla
 GROUP_CANDIDATES = ["Fabricante", "Marca", "Proveedor", "Producto", "Categoría"]
 
 
@@ -22,6 +21,11 @@ def render_detail_table(fa: pd.DataFrame, fb: pd.DataFrame) -> pd.DataFrame:
 
     st.markdown(f'<div class="section-title">📋 Detalle por {group_col}</div>', unsafe_allow_html=True)
     df = _build_table(fa, fb, group_col)
+
+    if df.empty:
+        st.info("No hay datos para mostrar con los filtros actuales.")
+        return df
+
     _display(df)
     return df
 
@@ -37,6 +41,9 @@ def _build_table(fa: pd.DataFrame, fb: pd.DataFrame, group_col: str) -> pd.DataF
     agg_b = fb.groupby(group_col).agg(**agg_dict)
     items = sorted(set(agg_a.index) | set(agg_b.index))
 
+    if not items:
+        return pd.DataFrame()
+
     rows = []
     for item in items:
         ia = agg_a.loc[item, "ingreso"] if item in agg_a.index else 0
@@ -49,18 +56,26 @@ def _build_table(fa: pd.DataFrame, fb: pd.DataFrame, group_col: str) -> pd.DataF
             group_col:       item,
             "Ing. Año Ant.": f"$ {ia:,.0f}",
             "Ing. Año Act.": f"$ {ib:,.0f}",
-            "Variación $":   f"{sign(ib - ia)}$ {ib - ia:,.0f}",
-            "Variación %":   f"{sign(dp)}{dp}%",
-            "Unid. Ant.": str(int(ca)) if ca != "-" else "-",
-            "Unid. Act.": str(int(cb)) if cb != "-" else "-",
+            "Variacion $":   f"{sign(ib - ia)}$ {ib - ia:,.0f}",
+            "Variacion %":   f"{sign(dp)}{dp}%",
+            "Unid. Ant.":    str(int(ca)) if ca != "-" else "-",
+            "Unid. Act.":    str(int(cb)) if cb != "-" else "-",
         })
 
-    return pd.DataFrame(rows).sort_values("Ing. Año Act.", ascending=False).reset_index(drop=True)
+    df = pd.DataFrame(rows)
+
+    if df.empty:
+        return df
+
+    return df.sort_values("Ing. Año Act.", ascending=False).reset_index(drop=True)
 
 
 def _display(df: pd.DataFrame) -> None:
-    var_cols = [c for c in ["Variación $", "Variación %"] if c in df.columns]
-    styled = df.style.map(_color_delta, subset=var_cols)
+    var_cols = [c for c in ["Variacion $", "Variacion %"] if c in df.columns]
+    if var_cols:
+        styled = df.style.map(_color_delta, subset=var_cols)
+    else:
+        styled = df.style
     st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
 
 
